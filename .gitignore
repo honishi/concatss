@@ -1,0 +1,6 @@
+venv
+*.pyc
+input/
+!input/.gitkeep
+output/
+!outout/.gitkeep
