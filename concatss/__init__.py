@@ -1,1 +1,1 @@
-from concatss import *
+from concatss.concatss import *

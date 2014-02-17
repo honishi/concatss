@@ -21,9 +21,6 @@ class ConcatScreenShot(object):
     def __init__(self):
         pass
 
-    def __del__(self):
-        pass
-
 # public methods
     def concatenate_images(self, input_filenames, output_filename):
         upper_image_filename = input_filenames[0]
@@ -43,8 +40,8 @@ class ConcatScreenShot(object):
 
 # internal methods
     def scan_images(self, upper_image, lower_image):
-        print "upper image size: %d, %d" % (upper_image.size[0], upper_image.size[1])
-        print "lower image size: %d, %d" % (lower_image.size[0], lower_image.size[1])
+        print("upper image size: {}, {}".format(upper_image.size[0], upper_image.size[1]))
+        print("lower image size: {}, {}".format(lower_image.size[0], lower_image.size[1]))
 
         if upper_image.size[0] != lower_image.size[0]:
             return None
@@ -59,20 +56,20 @@ class ConcatScreenShot(object):
         lower_image_concat_height = 0
         found_concat_positions = False
 
-        for upper_image_concat_height in xrange(
+        for upper_image_concat_height in range(
                 upper_image.size[1] - SCAN_RANGE-1,
-                upper_image.size[1] - SCAN_RANGE-1 - lower_image.size[1]/2,
+                upper_image.size[1] - SCAN_RANGE-1 - lower_image.size[1]//2,
                 -1):
-            # print "*** scanning upper height: %d" % upper_image_concat_height
-            for lower_image_concat_height in xrange(
+            # print("*** scanning upper height: {}".format(upper_image_concat_height))
+            for lower_image_concat_height in range(
                     0,
-                    lower_image.size[1]/2):
-                # print "scanning lower height: %d" % lower_image_concat_height
+                    lower_image.size[1]//2):
+                # print("scanning lower height: {}".format(lower_image_concat_height))
 
                 # pixel scan section
                 found_concat_positions = True
-                for y in xrange(0, SCAN_RANGE-1, SCAN_INTERVAL_Y):
-                    for x in xrange(0, image_width-1, SCAN_INTERVAL_X):
+                for y in range(0, SCAN_RANGE-1, SCAN_INTERVAL_Y):
+                    for x in range(0, image_width-1, SCAN_INTERVAL_X):
                         # any functions *should* be manually inline expanded.
                         # cause the code here is a hot spot of this code.
                         p = image_width * upper_image_concat_height
@@ -110,9 +107,9 @@ class ConcatScreenShot(object):
             if found_concat_positions is True:
                 break
 
-        print "found position: %s upper concat: %d, lower concat: %d" % (
-            "yes" if found_concat_positions is True else "no",
-            upper_image_concat_height, lower_image_concat_height)
+        print("found position: {} upper concat: {}, lower concat: {}".format(
+              "yes" if found_concat_positions is True else "no",
+              upper_image_concat_height, lower_image_concat_height))
 
         if found_concat_positions is False:
             return None
@@ -124,14 +121,14 @@ class ConcatScreenShot(object):
                      lower_image, lower_image_concat_height):
         cropped_upper_image = upper_image.crop(
             (0, 0, upper_image.size[0], upper_image_concat_height))
-        print "%d, %d" % (lower_image.size[1], lower_image_concat_height)
+        print("{}, {}".format(lower_image.size[1], lower_image_concat_height))
         cropped_lower_image = lower_image.crop(
             (0, lower_image_concat_height, lower_image.size[0], lower_image.size[1]))
 
-        print "cropped upper size: %d, %d" % (
-            cropped_upper_image.size[0], cropped_upper_image.size[1])
-        print "cropped lower size: %d, %d" % (
-            cropped_lower_image.size[0], cropped_lower_image.size[1])
+        print("cropped upper size: {}, {}".format(
+              cropped_upper_image.size[0], cropped_upper_image.size[1]))
+        print("cropped lower size: {}, {}".format(
+              cropped_lower_image.size[0], cropped_lower_image.size[1]))
 
         merged_image = Image.new(
             'RGB',
@@ -145,6 +142,7 @@ class ConcatScreenShot(object):
         # merged_image.save('./merged.png', 'PNG')
 
         return merged_image
+
 
 if __name__ == "__main__":
     cProfile.run('concatss = ConcatScreenShot()')

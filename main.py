@@ -11,7 +11,7 @@ INPUT_DIR = os.path.dirname(os.path.abspath(__file__)) + '/input'
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__)) + '/output'
 
 IMAGE_NAME_PREFIX = 'image'
-ACCEPTABLE_IMAGE_COUNT = 100
+ACCEPTABLE_IMAGE_COUNT = 10
 
 WORK_IN_PROGRESS_SUFFIX = '.wip'
 
@@ -40,12 +40,17 @@ def upload():
 
     received_filenames = []
     for idx in range(1, ACCEPTABLE_IMAGE_COUNT):
-        possible_received_file = IMAGE_NAME_PREFIX + '%02d' % idx
-        if request.files.get(possible_received_file):
-            received_file = request.files[possible_received_file]
-            output_filename = INPUT_DIR + '/' + str(uuid.uuid4())
-            received_file.save(output_filename)
+        # get image as FileStorage type
+        possible_image_name = IMAGE_NAME_PREFIX + '{0:02d}'.format(idx)
+        received_filestorage = request.files[possible_image_name]
+
+        # try to flush it
+        output_filename = INPUT_DIR + '/' + str(uuid.uuid4())
+        received_filestorage.save(output_filename)
+        if os.path.getsize(output_filename):
             received_filenames.append(output_filename)
+        else:
+            os.remove(output_filename)
 
     if len(received_filenames) < 2:
         return "not enough images specified."
