@@ -8,17 +8,17 @@ algorithm
 setup
 --
 ````
-$ sudo apt-get install libjpeg8 libjpeg8-dev
-$ virtualenv --distribute venv
-$ source ./venv/bin/activate
-$ pip install http://sourceforge.net/projects/pychecker/files/pychecker/0.8.19/pychecker-0.8.19.tar.gz/download
-$ pip install -r requirements.txt
+sudo apt-get install libjpeg8 libjpeg8-dev
+pyenv install 2.7.6
+pyenv virtualenv 2.7.6 concatss-2.7.6
+pip install -r requirements.txt
 ````
 
 sample
 --
 generate concatenated screenshot from separated images.
-![screenshot](./sample/output.png)
+
+![screenshot](./sample/output_resized.png)
 
 license
 --

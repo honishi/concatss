@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # encoding=utf-8
 
-import os
-import sys
-import uuid
 from PIL import Image
 import cProfile
 
@@ -17,6 +14,7 @@ SCAN_RANGE = 50
 SCAN_INTERVAL_Y = 5
 SCAN_INTERVAL_X = 25
 SAME_PIXEL_ALLOWANCE = 32
+
 
 class ConcatScreenShot(object):
 # object life cycle
@@ -105,50 +103,41 @@ class ConcatScreenShot(object):
                         if SAME_PIXEL_ALLOWANCE < diff_blue:
                             found_concat_positions = False
                             break
-                    if found_concat_positions == False:
+                    if found_concat_positions is False:
                         break
-                if found_concat_positions == True:
+                if found_concat_positions is True:
                     break
-            if found_concat_positions == True:
+            if found_concat_positions is True:
                 break
 
         print "found position: %s upper concat: %d, lower concat: %d" % (
-                "yes" if found_concat_positions == True else "no",
-                upper_image_concat_height,
-                lower_image_concat_height)
+            "yes" if found_concat_positions is True else "no",
+            upper_image_concat_height, lower_image_concat_height)
 
-        if found_concat_positions == False:
+        if found_concat_positions is False:
             return None
 
-        return self.merge_images(upper_image,
-                upper_image_concat_height,
-                lower_image,
-                lower_image_concat_height)
+        return self.merge_images(upper_image, upper_image_concat_height,
+                                 lower_image, lower_image_concat_height)
 
-    def merge_images(self,
-            upper_image,
-            upper_image_concat_height,
-            lower_image,
-            lower_image_concat_height):
-        cropped_upper_image = upper_image.crop((0,
-                0,
-                upper_image.size[0],
-                upper_image_concat_height))
+    def merge_images(self, upper_image, upper_image_concat_height,
+                     lower_image, lower_image_concat_height):
+        cropped_upper_image = upper_image.crop(
+            (0, 0, upper_image.size[0], upper_image_concat_height))
         print "%d, %d" % (lower_image.size[1], lower_image_concat_height)
-        cropped_lower_image = lower_image.crop((0,
-                lower_image_concat_height,
-                lower_image.size[0],
-                lower_image.size[1]))
+        cropped_lower_image = lower_image.crop(
+            (0, lower_image_concat_height, lower_image.size[0], lower_image.size[1]))
 
         print "cropped upper size: %d, %d" % (
-                cropped_upper_image.size[0], cropped_upper_image.size[1])
+            cropped_upper_image.size[0], cropped_upper_image.size[1])
         print "cropped lower size: %d, %d" % (
-                cropped_lower_image.size[0], cropped_lower_image.size[1])
+            cropped_lower_image.size[0], cropped_lower_image.size[1])
 
-        merged_image = Image.new('RGB',
-                (cropped_upper_image.size[0],
-                    cropped_upper_image.size[1] + cropped_lower_image.size[1]),
-                (255, 255, 255))
+        merged_image = Image.new(
+            'RGB',
+            (cropped_upper_image.size[0],
+             cropped_upper_image.size[1] + cropped_lower_image.size[1]),
+            (255, 255, 255))
         merged_image.paste(cropped_upper_image, (0, 0))
         merged_image.paste(cropped_lower_image, (0, cropped_upper_image.size[1]))
 
@@ -159,7 +148,8 @@ class ConcatScreenShot(object):
 
 if __name__ == "__main__":
     cProfile.run('concatss = ConcatScreenShot()')
-    cProfile.run('concatss.concatenate_images('
-            '["./sample/input1.png", "./sample/input2.png", "./sample/input3.png"],'
-            # '["./sample/input1.png", "./sample/input2.png"],'
-            '"./sample/output.png")')
+    cProfile.run(
+        'concatss.concatenate_images('
+        '["./sample/input1.png", "./sample/input2.png", "./sample/input3.png"],'
+        # '["./sample/input1.png", "./sample/input2.png"],'
+        '"./sample/output.png")')
