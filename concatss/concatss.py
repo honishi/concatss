@@ -71,9 +71,10 @@ def _concatenate(upper_image, lower_image, status_log_filename=None, log_header=
     lower_pixels = list(lower_image.getdata())
 
     upper_image_scan_start_offset = upper_image.size[1] - MINIMUM_REQUIRED_MATCHED_HEIGHT
-    upper_image_scan_end_offset = max(upper_image_scan_start_offset - lower_image.size[1], 0)
+    upper_image_scan_end_offset = upper_image.size[1] - lower_image.size[1]//2
     print("scan start offset: {}, end offset: {}".format(
           upper_image_scan_start_offset, upper_image_scan_end_offset))
+
     lower_image_scan_end_offset = lower_image.size[1] - MINIMUM_REQUIRED_MATCHED_HEIGHT
 
     offset_candidates = []
@@ -104,20 +105,27 @@ def _concatenate(upper_image, lower_image, status_log_filename=None, log_header=
             # print("upper offset: {0:4d}, lower offset: {1:4d}, diff: {2:5d}, lowest: {3:5d}"
             #       .format(upper_offset, lower_offset, difference, current_lowest_difference))
 
-    # for candidate in sorted(offset_candidates, key=lambda x:x[2]):
-    #     print("candidate: {}".format(candidate))
+    chosen_candidate = _choose_offset_candidate(offset_candidates)
+    chosen_upper_offset = chosen_candidate[0]
+    chosen_lower_offset = chosen_candidate[1]
+    print("concatenate using offset, upper: {}, lower: {}"
+          .format(chosen_upper_offset, chosen_lower_offset))
 
-    top_candidate = sorted(offset_candidates, key=lambda x: x[2])[0]
-    print("top candidate: {}", top_candidate)
+    return _merge(upper_image, chosen_upper_offset, lower_image, chosen_lower_offset)
 
-    found_upper_offset = top_candidate[0]
-    found_lower_offset = top_candidate[1]
 
-    print("concatenate using offset, upper: {}, lower: {}".format(
-          found_upper_offset, found_lower_offset))
+def _choose_offset_candidate(candidates):
+    sorted_candidates = sorted(candidates, key=lambda x:x[2])   # order by diff asc
+    """
+    idx = 0
+    for candidate in sorted_candidates:
+        print("candidate: {} {}".format(idx, candidate))
+        if 20 < idx:
+            break
+        idx += 1
+    """
 
-    return _merge(upper_image, found_upper_offset, lower_image, found_lower_offset)
-
+    return sorted_candidates[0]
 
 def _scan_images(image_width, upper_pixels, upper_offset, lower_pixels, lower_offset,
                  stop_difference):
@@ -197,8 +205,8 @@ if __name__ == "__main__":
         concatenate_images(
             ["./sample/input1.png", "./sample/input2.png", "./sample/input3.png"],
             # ["./sample/input1.png", "./sample/input2.png"],
-            "./output.png")
-            # "./sample/output.png")
+            # ["./sample/input2.png", "./sample/input3.png"],
+            "./sample/output.png")
     else:
         cProfile.run(
             'concatenate_images('
