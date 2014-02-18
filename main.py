@@ -13,8 +13,6 @@ OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__)) + '/output'
 IMAGE_NAME_PREFIX = 'image'
 ACCEPTABLE_IMAGE_COUNT = 10
 
-WORK_IN_PROGRESS_SUFFIX = '.wip'
-
 app = Flask(__name__)
 
 
@@ -26,8 +24,13 @@ def index():
 @app.route("/concatenated/<concatenated_id>", methods=["GET"])
 def concatenated(concatenated_id):
     concatenated_filename = OUTPUT_DIR + '/' + concatenated_id
-    if os.path.exists(concatenated_filename + WORK_IN_PROGRESS_SUFFIX):
-        return "working... {}".format(metatag_for_redirect(concatenated_id))
+    status_filename = concatenated_filename + '.status'
+    if os.path.exists(status_filename):
+        logfile = open(status_filename)
+        log = logfile.read()
+        logfile.close()
+        meta = metatag_for_redirect(concatenated_id)
+        return "{}\n{}".format(log, meta)
     elif not os.path.exists(concatenated_filename):
         return "failed."
     return send_file(concatenated_filename, mimetype='image/jpeg')
@@ -56,10 +59,10 @@ def upload():
         return "not enough images specified."
 
     concatenated_id = str(uuid.uuid4())
-    t = threading.Thread(target=concat, args=(concatenated_id, received_filenames))
-    t.start()
+    concat_thread = threading.Thread(target=concat, args=(concatenated_id, received_filenames))
+    concat_thread.start()
 
-    return "uploaded... {}".format(metatag_for_redirect(concatenated_id))
+    return "uploaded.{}".format(metatag_for_redirect(concatenated_id))
 
 
 def metatag_for_redirect(concatenated_id):
@@ -69,14 +72,7 @@ def metatag_for_redirect(concatenated_id):
 
 def concat(concatenated_id, received_filenames):
     concatenated_filename = OUTPUT_DIR + '/' + concatenated_id
-
-    # touch
-    open(concatenated_filename + WORK_IN_PROGRESS_SUFFIX, 'a').close()
-
-    concat = concatss.ConcatScreenShot()
-    concatenated_image = concat.concatenate_images(received_filenames, concatenated_filename)
-
-    os.remove(concatenated_filename + WORK_IN_PROGRESS_SUFFIX)
+    concatss.concatenate_images(received_filenames, concatenated_filename, True)
 
 
 if __name__ == "__main__":

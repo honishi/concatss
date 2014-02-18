@@ -1,16 +1,24 @@
 online concatenated screenshot generator
 ==
 
-algorithm
+matching algorithm
 --
-> "When in doubt, use **brute force**." (Ken Thompson)
+brute force.
+
+prerequisite
+--
+* pyenv
+    * https://github.com/yyuu/pyenv
+    * python 3.3.x
+* pyenv-virtualenv
+    * https://github.com/yyuu/pyenv-virtualenv
 
 setup
 --
 ````
 sudo apt-get install libjpeg8 libjpeg8-dev
-pyenv install 2.7.6
-pyenv virtualenv 2.7.6 concatss-2.7.6
+pyenv install 3.3.3
+pyenv virtualenv 3.3.3 concatss-3.3.3
 pip install -r requirements.txt
 ````
 

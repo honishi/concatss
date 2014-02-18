@@ -1,153 +1,207 @@
 #!/usr/bin/env python
 # encoding=utf-8
 
+import os
 from PIL import Image
 import cProfile
 
-SCAN_RANGE = 50
-# scan interval is used for performance improvement
-#SCAN_INTERVAL_Y = 2
-#SCAN_INTERVAL_X = 10
-#SAME_PIXEL_ALLOWANCE = 32
-## SAME_PIXEL_ALLOWANCE = 128
+MINIMUM_REQUIRED_MATCHED_HEIGHT = 50
 
+# scan interval is used for performance improvement
 SCAN_INTERVAL_Y = 5
 SCAN_INTERVAL_X = 25
-SAME_PIXEL_ALLOWANCE = 32
 
+STATUS_LOG_SUFFIX = '.status'
 
-class ConcatScreenShot(object):
-# object life cycle
-    def __init__(self):
-        pass
 
 # public methods
-    def concatenate_images(self, input_filenames, output_filename):
-        upper_image_filename = input_filenames[0]
-        input_filenames.remove(upper_image_filename)
-        upper_image = Image.open(upper_image_filename, 'r')
+def concatenate_images(input_filenames, output_filename, log_status=False):
+    """
+    returns True if files are successfully concatenated
+    """
+    if len(input_filenames) < 2:
+        return False
 
-        for lower_image_filename in input_filenames:
-            lower_image = Image.open(lower_image_filename, 'r')
-            concatenated_image = self.scan_images(upper_image, lower_image)
+    status_log_filename = None
+    if log_status:
+        status_log_filename = output_filename + STATUS_LOG_SUFFIX
+        open(status_log_filename, 'w').close()  # touch
 
-            if concatenated_image is None:
-                return False
-            upper_image = concatenated_image
+    upper_image_filename = input_filenames[0]
+    input_filenames.remove(upper_image_filename)
+    upper_image = Image.open(upper_image_filename, 'r')
 
+    processed_count = 1
+    concatenated_image = None
+    for lower_image_filename in input_filenames:
+        lower_image = Image.open(lower_image_filename, 'r')
+        log_header = "processing {} of {}: ".format(processed_count, len(input_filenames))
+
+        concatenated_image = _concatenate(
+            upper_image, lower_image, status_log_filename, log_header)
+
+        if concatenated_image is None:
+            break
+        upper_image = concatenated_image
+
+        processed_count += 1
+
+    if concatenated_image:
         concatenated_image.save(output_filename, 'PNG')
-        return True
+
+    if log_status:
+        os.remove(status_log_filename)
+
+    return True
+
 
 # internal methods
-    def scan_images(self, upper_image, lower_image):
-        print("upper image size: {}, {}".format(upper_image.size[0], upper_image.size[1]))
-        print("lower image size: {}, {}".format(lower_image.size[0], lower_image.size[1]))
+def _concatenate(upper_image, lower_image, status_log_filename=None, log_header=""):
+    print("upper image size: {}, {}".format(upper_image.size[0], upper_image.size[1]))
+    print("lower image size: {}, {}".format(lower_image.size[0], lower_image.size[1]))
 
-        if upper_image.size[0] != lower_image.size[0]:
-            return None
-        # use upper image width as common image width
-        image_width = upper_image.size[0]
+    if upper_image.size[0] != lower_image.size[0]:
+        return None
 
-        # for performance, use getdata() instead of getpixel()
-        upper_pixels = list(upper_image.getdata())
-        lower_pixels = list(lower_image.getdata())
+    # use upper image width as common image width
+    image_width = upper_image.size[0]
 
-        upper_image_concat_height = 0
-        lower_image_concat_height = 0
-        found_concat_positions = False
+    # for performance, use getdata() instead of getpixel()
+    upper_pixels = list(upper_image.getdata())
+    lower_pixels = list(lower_image.getdata())
 
-        for upper_image_concat_height in range(
-                upper_image.size[1] - SCAN_RANGE-1,
-                upper_image.size[1] - SCAN_RANGE-1 - lower_image.size[1]//2,
-                -1):
-            # print("*** scanning upper height: {}".format(upper_image_concat_height))
-            for lower_image_concat_height in range(
-                    0,
-                    lower_image.size[1]//2):
-                # print("scanning lower height: {}".format(lower_image_concat_height))
+    upper_image_scan_start_offset = upper_image.size[1] - MINIMUM_REQUIRED_MATCHED_HEIGHT
+    upper_image_scan_end_offset = max(upper_image_scan_start_offset - lower_image.size[1], 0)
+    print("scan start offset: {}, end offset: {}".format(
+          upper_image_scan_start_offset, upper_image_scan_end_offset))
+    lower_image_scan_end_offset = lower_image.size[1] - MINIMUM_REQUIRED_MATCHED_HEIGHT
 
-                # pixel scan section
-                found_concat_positions = True
-                for y in range(0, SCAN_RANGE-1, SCAN_INTERVAL_Y):
-                    for x in range(0, image_width-1, SCAN_INTERVAL_X):
-                        # any functions *should* be manually inline expanded.
-                        # cause the code here is a hot spot of this code.
-                        p = image_width * upper_image_concat_height
-                        p += y * image_width + x
-                        upper_pixel = upper_pixels[p]
+    offset_candidates = []
+    current_lowest_difference = None
 
-                        p = image_width * lower_image_concat_height
-                        p += y * image_width + x
-                        lower_pixel = lower_pixels[p]
+    for upper_offset in range(upper_image_scan_start_offset, upper_image_scan_end_offset, -1):
+        # print("scanning upper image, offset: {}".format(upper_offset))
+        if status_log_filename:
+            f = open(status_log_filename, 'w')  # overwrite
+            f.write("{}scanning images, offset {}\n".format(log_header, upper_offset))
+            f.close()
 
-                        diff_red = upper_pixel[0] - lower_pixel[0]
-                        if diff_red < 0:
-                            diff_red *= -1
-                        if SAME_PIXEL_ALLOWANCE < diff_red:
-                            found_concat_positions = False
-                            break
+        for lower_offset in range(0, lower_image_scan_end_offset):
+            # print("scanning lower image, offset: {}".format(lower_offset))
+            if upper_offset <= lower_offset:
+                continue
 
-                        diff_green = upper_pixel[1] - lower_pixel[1]
-                        if diff_green < 0:
-                            diff_green *= -1
-                        if SAME_PIXEL_ALLOWANCE < diff_green:
-                            found_concat_positions = False
-                            break
+            difference = _scan_images(image_width, upper_pixels, upper_offset, lower_pixels,
+                                      lower_offset, current_lowest_difference)
+            offset_candidates.append((upper_offset, lower_offset, difference))
 
-                        diff_blue = upper_pixel[2] - lower_pixel[2]
-                        if diff_blue < 0:
-                            diff_blue *= -1
-                        if SAME_PIXEL_ALLOWANCE < diff_blue:
-                            found_concat_positions = False
-                            break
-                    if found_concat_positions is False:
-                        break
-                if found_concat_positions is True:
-                    break
-            if found_concat_positions is True:
+            if current_lowest_difference is None:
+                current_lowest_difference = difference
+            else:
+                if difference < current_lowest_difference:
+                    current_lowest_difference = difference
+
+            # print("upper offset: {0:4d}, lower offset: {1:4d}, diff: {2:5d}, lowest: {3:5d}"
+            #       .format(upper_offset, lower_offset, difference, current_lowest_difference))
+
+    # for candidate in sorted(offset_candidates, key=lambda x:x[2]):
+    #     print("candidate: {}".format(candidate))
+
+    top_candidate = sorted(offset_candidates, key=lambda x: x[2])[0]
+    print("top candidate: {}", top_candidate)
+
+    found_upper_offset = top_candidate[0]
+    found_lower_offset = top_candidate[1]
+
+    print("concatenate using offset, upper: {}, lower: {}".format(
+          found_upper_offset, found_lower_offset))
+
+    return _merge(upper_image, found_upper_offset, lower_image, found_lower_offset)
+
+
+def _scan_images(image_width, upper_pixels, upper_offset, lower_pixels, lower_offset,
+                 stop_difference):
+    """
+    returns difference between images between images
+    """
+    difference = 0
+    detected_too_different = False
+
+    for y in range(0, MINIMUM_REQUIRED_MATCHED_HEIGHT, SCAN_INTERVAL_Y):
+        for x in range(0, image_width-1, SCAN_INTERVAL_X):
+            # pixel scan section
+            p = image_width * upper_offset
+            p += y * image_width + x
+            if not p < len(upper_pixels):
+                # scanned every possible pixels
+                return difference
+            upper_pixel = upper_pixels[p]
+
+            p = image_width * lower_offset
+            p += y * image_width + x
+            if not p < len(lower_pixels):
+                return difference
+            lower_pixel = lower_pixels[p]
+
+            difference += _calculate_pixel_difference(upper_pixel, lower_pixel)
+
+            if stop_difference is not None and stop_difference < difference:
+                detected_too_different = True
                 break
+        if detected_too_different:
+            break
 
-        print("found position: {} upper concat: {}, lower concat: {}".format(
-              "yes" if found_concat_positions is True else "no",
-              upper_image_concat_height, lower_image_concat_height))
+    return difference
 
-        if found_concat_positions is False:
-            return None
 
-        return self.merge_images(upper_image, upper_image_concat_height,
-                                 lower_image, lower_image_concat_height)
+def _calculate_pixel_difference(a, b):
+    difference = _delta(a[0], b[0])     # red
+    difference += _delta(a[1], b[1])    # green
+    difference += _delta(a[2], b[2])    # blue
 
-    def merge_images(self, upper_image, upper_image_concat_height,
-                     lower_image, lower_image_concat_height):
-        cropped_upper_image = upper_image.crop(
-            (0, 0, upper_image.size[0], upper_image_concat_height))
-        print("{}, {}".format(lower_image.size[1], lower_image_concat_height))
-        cropped_lower_image = lower_image.crop(
-            (0, lower_image_concat_height, lower_image.size[0], lower_image.size[1]))
+    return difference
 
-        print("cropped upper size: {}, {}".format(
-              cropped_upper_image.size[0], cropped_upper_image.size[1]))
-        print("cropped lower size: {}, {}".format(
-              cropped_lower_image.size[0], cropped_lower_image.size[1]))
 
-        merged_image = Image.new(
-            'RGB',
-            (cropped_upper_image.size[0],
-             cropped_upper_image.size[1] + cropped_lower_image.size[1]),
-            (255, 255, 255))
-        merged_image.paste(cropped_upper_image, (0, 0))
-        merged_image.paste(cropped_lower_image, (0, cropped_upper_image.size[1]))
+def _delta(a, b):
+    if a < b:
+        return b - a
+    else:
+        return a - b
 
-        # test
-        # merged_image.save('./merged.png', 'PNG')
 
-        return merged_image
+def _merge(upper_image, upper_offset, lower_image, lower_offset):
+    cropped_upper_image = upper_image.crop(
+        (0, 0, upper_image.size[0], upper_offset))
+    # print("{}, {}".format(lower_image.size[1], lower_offset))
+    cropped_lower_image = lower_image.crop(
+        (0, lower_offset, lower_image.size[0], lower_image.size[1]))
+
+    print("cropped upper size: {}, {}".format(
+          cropped_upper_image.size[0], cropped_upper_image.size[1]))
+    print("cropped lower size: {}, {}".format(
+          cropped_lower_image.size[0], cropped_lower_image.size[1]))
+
+    merged_image = Image.new(
+        'RGB',
+        (cropped_upper_image.size[0], cropped_upper_image.size[1] + cropped_lower_image.size[1]),
+        (255, 255, 255))
+    merged_image.paste(cropped_upper_image, (0, 0))
+    merged_image.paste(cropped_lower_image, (0, cropped_upper_image.size[1]))
+
+    # test: merged_image.save('./merged.png', 'PNG')
+    return merged_image
 
 
 if __name__ == "__main__":
-    cProfile.run('concatss = ConcatScreenShot()')
-    cProfile.run(
-        'concatss.concatenate_images('
-        '["./sample/input1.png", "./sample/input2.png", "./sample/input3.png"],'
-        # '["./sample/input1.png", "./sample/input2.png"],'
-        '"./sample/output.png")')
+    if 1:
+        concatenate_images(
+            ["./sample/input1.png", "./sample/input2.png", "./sample/input3.png"],
+            # ["./sample/input1.png", "./sample/input2.png"],
+            "./output.png")
+            # "./sample/output.png")
+    else:
+        cProfile.run(
+            'concatenate_images('
+            '["./sample/input1.png", "./sample/input2.png", "./sample/input3.png"],'
+            # '["./sample/input1.png", "./sample/input2.png"],'
+            '"./sample/output.png")')
