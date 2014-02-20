@@ -115,7 +115,8 @@ def _concatenate(upper_image, lower_image, status_log_filename=None, log_header=
 
 
 def _choose_offset_candidate(candidates):
-    sorted_candidates = sorted(candidates, key=lambda x:x[2])   # order by diff asc
+    # using 'diff' in ascending as 1st sort key, and 'lower offset' in ascending as 2nd
+    sorted_candidates = sorted(candidates, key=lambda x:(x[2], x[1]))
     """
     idx = 0
     for candidate in sorted_candidates:
